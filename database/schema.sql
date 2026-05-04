@@ -1,0 +1,1 @@
+-- Real database schema will be created after the MCD, MLD, and MPD are finalized.
