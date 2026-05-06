@@ -141,3 +141,39 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Controle One backend safety ignores
+dist/
+build/
+coverage/
+.cache/
+.tmp/
+tmp/
+logs/
+.env.local
+.env.*.local
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Archives
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# Media and binary assets
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.pdf
