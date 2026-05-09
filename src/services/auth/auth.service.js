@@ -30,6 +30,18 @@ const findUserForLoginByEmail = async (email) => {
   return rows[0] || null;
 };
 
+const getUserById = async (userId) => {
+  const [rows] = await pool.execute(
+    `SELECT user_id, first_name, last_name, email, phone, role, status, created_at, updated_at
+     FROM users
+     WHERE user_id = ?
+     LIMIT 1`,
+    [userId],
+  );
+
+  return rows[0] || null;
+};
+
 const registerUser = async ({ first_name, last_name, email, password, phone, role }) => {
   const existingUser = await findUserByEmail(email);
 
@@ -124,6 +136,7 @@ const loginUser = async ({ email, password }) => {
 };
 
 module.exports = {
+  getUserById,
   loginUser,
   registerUser,
 };
