@@ -122,8 +122,27 @@ const logout = (req, res) => {
   return successResponse(res, 'Logout successful', {});
 };
 
+const me = async (req, res) => {
+  try {
+    const user = await authService.getUserById(req.user.user_id);
+
+    if (!user) {
+      return errorResponse(res, 'Authenticated user not found', 404, {});
+    }
+
+    if (user.status !== 'active') {
+      return errorResponse(res, 'Authenticated user is not active', 403, {});
+    }
+
+    return successResponse(res, 'Authenticated user retrieved successfully', { user });
+  } catch (error) {
+    return errorResponse(res, 'Authenticated user could not be retrieved', 500, {});
+  }
+};
+
 module.exports = {
   login,
   logout,
+  me,
   register,
 };
