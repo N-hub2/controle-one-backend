@@ -117,7 +117,13 @@ const login = async (req, res) => {
   }
 };
 
+const logout = (req, res) => {
+  // With JWT, logout is completed on the frontend by removing the stored token.
+  return successResponse(res, 'Logout successful', {});
+};
+
 module.exports = {
   login,
+  logout,
   register,
 };
