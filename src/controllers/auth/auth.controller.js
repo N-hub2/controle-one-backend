@@ -53,6 +53,30 @@ const validateRegisterInput = (body) => {
   };
 };
 
+const validateLoginInput = (body) => {
+  const errors = [];
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  if (!email) {
+    errors.push({ field: 'email', message: 'Email is required' });
+  } else if (!isValidEmail(email)) {
+    errors.push({ field: 'email', message: 'Email format is invalid' });
+  }
+
+  if (!password || password.trim().length === 0) {
+    errors.push({ field: 'password', message: 'Password is required' });
+  }
+
+  return {
+    errors,
+    values: {
+      email,
+      password,
+    },
+  };
+};
+
 const register = async (req, res, next) => {
   try {
     const { errors, values } = validateRegisterInput(req.body || {});
@@ -73,6 +97,27 @@ const register = async (req, res, next) => {
   }
 };
 
+const login = async (req, res) => {
+  try {
+    const { errors, values } = validateLoginInput(req.body || {});
+
+    if (errors.length > 0) {
+      return errorResponse(res, 'Validation failed', 400, { errors });
+    }
+
+    const { token, user } = await authService.loginUser(values);
+
+    return successResponse(res, 'Login successful', { token, user });
+  } catch (error) {
+    if (error.code === 'INVALID_CREDENTIALS' || error.code === 'USER_NOT_ACTIVE') {
+      return errorResponse(res, 'Invalid email or password', 401, {});
+    }
+
+    return errorResponse(res, 'Login failed', 500, {});
+  }
+};
+
 module.exports = {
+  login,
   register,
 };
