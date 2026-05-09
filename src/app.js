@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 
+const authRoutes = require('./routes/auth/auth.routes');
 const healthRoutes = require('./routes/health.routes');
 const notFoundMiddleware = require('./middlewares/notFound.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -32,6 +33,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+app.use('/api/auth', authRoutes);
 app.use('/api/health', healthRoutes);
 
 app.use(notFoundMiddleware);
