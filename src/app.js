@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const authRoutes = require('./routes/auth/auth.routes');
+const garageRoutes = require('./routes/garages/garage.routes');
 const healthRoutes = require('./routes/health.routes');
 const notFoundMiddleware = require('./middlewares/notFound.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -34,6 +35,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/garages', garageRoutes);
 app.use('/api/health', healthRoutes);
 
 app.use(notFoundMiddleware);
