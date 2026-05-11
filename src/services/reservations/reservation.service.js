@@ -86,6 +86,111 @@ const getReservationsByUserId = async (userId) => {
   }));
 };
 
+const getReservationsByGarageId = async ({ garageId, user }) => {
+  const [garageRows] = await pool.execute(
+    `SELECT
+       garage_id,
+       manager_user_id,
+       status
+     FROM garages
+     WHERE garage_id = ?
+     LIMIT 1`,
+    [garageId],
+  );
+
+  const garage = garageRows[0] || null;
+
+  if (!garage || garage.status !== 'active') {
+    return { errorCode: 'GARAGE_NOT_FOUND' };
+  }
+
+  if (user.role === 'garage') {
+    if (Number(garage.manager_user_id) !== Number(user.user_id)) {
+      return { errorCode: 'ACCESS_FORBIDDEN' };
+    }
+  } else if (user.role !== 'admin') {
+    return { errorCode: 'ACCESS_FORBIDDEN' };
+  }
+
+  const [rows] = await pool.execute(
+    `SELECT
+       r.reservation_id,
+       r.user_id,
+       r.garage_id,
+       r.service_id,
+       r.slot_id,
+       r.status,
+       r.vehicle_registration,
+       r.vehicle_make,
+       r.vehicle_model,
+       r.vehicle_year,
+       r.vehicle_version,
+       r.created_at,
+       r.updated_at,
+       u.user_id AS user_user_id,
+       u.first_name AS user_first_name,
+       u.last_name AS user_last_name,
+       u.email AS user_email,
+       u.phone AS user_phone,
+       u.role AS user_role,
+       u.status AS user_status,
+       s.service_id AS service_service_id,
+       s.name AS service_name,
+       s.description AS service_description,
+       s.status AS service_status,
+       sl.slot_id AS slot_slot_id,
+       sl.start_datetime AS slot_start_datetime,
+       sl.end_datetime AS slot_end_datetime,
+       sl.status AS slot_status
+     FROM reservations r
+     INNER JOIN users u ON r.user_id = u.user_id
+     INNER JOIN services s ON r.service_id = s.service_id
+     INNER JOIN slots sl ON r.slot_id = sl.slot_id
+     WHERE r.garage_id = ?
+     ORDER BY r.created_at DESC`,
+    [garageId],
+  );
+
+  return {
+    reservations: rows.map((row) => ({
+      reservation_id: row.reservation_id,
+      user_id: row.user_id,
+      garage_id: row.garage_id,
+      service_id: row.service_id,
+      slot_id: row.slot_id,
+      status: row.status,
+      vehicle_registration: row.vehicle_registration,
+      vehicle_make: row.vehicle_make,
+      vehicle_model: row.vehicle_model,
+      vehicle_year: row.vehicle_year,
+      vehicle_version: row.vehicle_version,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      user: {
+        user_id: row.user_user_id,
+        first_name: row.user_first_name,
+        last_name: row.user_last_name,
+        email: row.user_email,
+        phone: row.user_phone,
+        role: row.user_role,
+        status: row.user_status,
+      },
+      service: {
+        service_id: row.service_service_id,
+        name: row.service_name,
+        description: row.service_description,
+        status: row.service_status,
+      },
+      slot: {
+        slot_id: row.slot_slot_id,
+        start_datetime: row.slot_start_datetime,
+        end_datetime: row.slot_end_datetime,
+        status: row.slot_status,
+      },
+    })),
+  };
+};
+
 const createReservation = async ({
   userId,
   garageId,
@@ -256,6 +361,7 @@ const createReservation = async ({
 };
 
 module.exports = {
+  getReservationsByGarageId,
   getReservationsByUserId,
   createReservation,
 };
