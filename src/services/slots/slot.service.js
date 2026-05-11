@@ -96,7 +96,104 @@ const createSlot = async ({ garageId, startDatetime, endDatetime, user }) => {
   };
 };
 
+const getSlotWithGarageById = async (slotId) => {
+  const [rows] = await pool.execute(
+    `SELECT
+       s.slot_id,
+       s.garage_id,
+       s.start_datetime,
+       s.end_datetime,
+       s.status AS slot_status,
+       g.status AS garage_status,
+       g.manager_user_id
+     FROM slots s
+     LEFT JOIN garages g ON g.garage_id = s.garage_id
+     WHERE s.slot_id = ?
+     LIMIT 1`,
+    [slotId],
+  );
+
+  return rows[0] || null;
+};
+
+const hasActiveReservationForSlot = async (slotId) => {
+  const [rows] = await pool.execute(
+    `SELECT reservation_id
+     FROM reservations
+     WHERE slot_id = ?
+       AND status IN ('pending', 'confirmed')
+     LIMIT 1`,
+    [slotId],
+  );
+
+  return rows[0] || null;
+};
+
+const blockSlotById = async ({ slotId, user }) => {
+  const slot = await getSlotWithGarageById(slotId);
+
+  if (!slot || !slot.garage_status || slot.garage_status !== 'active') {
+    return { errorCode: 'SLOT_NOT_FOUND' };
+  }
+
+  if (user.role === 'garage' && Number(slot.manager_user_id) !== Number(user.user_id)) {
+    return { errorCode: 'ACCESS_FORBIDDEN' };
+  }
+
+  if (slot.slot_status === 'blocked') {
+    return { errorCode: 'SLOT_ALREADY_BLOCKED' };
+  }
+
+  if (slot.slot_status === 'booked') {
+    return { errorCode: 'SLOT_CANNOT_BE_BLOCKED' };
+  }
+
+  if (slot.slot_status !== 'available') {
+    return { errorCode: 'SLOT_CANNOT_BE_BLOCKED' };
+  }
+
+  if (new Date(slot.start_datetime).getTime() < Date.now()) {
+    return { errorCode: 'SLOT_CANNOT_BE_BLOCKED' };
+  }
+
+  const activeReservation = await hasActiveReservationForSlot(slotId);
+
+  if (activeReservation) {
+    return { errorCode: 'SLOT_CANNOT_BE_BLOCKED' };
+  }
+
+  const [updateResult] = await pool.execute(
+    `UPDATE slots
+     SET status = 'blocked', updated_at = CURRENT_TIMESTAMP
+     WHERE slot_id = ?
+       AND status = 'available'`,
+    [slotId],
+  );
+
+  if (updateResult.affectedRows === 0) {
+    return { errorCode: 'SLOT_CANNOT_BE_BLOCKED' };
+  }
+
+  const [rows] = await pool.execute(
+    `SELECT
+       slot_id,
+       garage_id,
+       start_datetime,
+       end_datetime,
+       status
+     FROM slots
+     WHERE slot_id = ?
+     LIMIT 1`,
+    [slotId],
+  );
+
+  return {
+    slot: rows[0] || null,
+  };
+};
+
 module.exports = {
+  blockSlotById,
   createSlot,
   getAvailableSlotsByGarageId,
 };
