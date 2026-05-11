@@ -143,6 +143,17 @@ const createReservation = async (req, res) => {
   }
 };
 
+const getMyReservations = async (req, res) => {
+  try {
+    const reservations = await reservationService.getReservationsByUserId(req.user.user_id);
+
+    return successResponse(res, 'Reservations retrieved successfully', { reservations }, 200);
+  } catch (error) {
+    return errorResponse(res, 'Reservations could not be retrieved', 500, {});
+  }
+};
+
 module.exports = {
+  getMyReservations,
   createReservation,
 };
