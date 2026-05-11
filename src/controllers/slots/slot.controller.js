@@ -119,7 +119,71 @@ const createSlot = async (req, res) => {
   }
 };
 
+const validateBlockSlotInput = (params, body) => {
+  const errors = [];
+  const { id } = params;
+
+  if (!isPositiveIntegerString(id)) {
+    errors.push({ field: 'id', message: 'id must be a positive integer' });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'reason')) {
+    errors.push({ field: 'reason', message: 'reason cannot be set from request body' });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'block_reason')) {
+    errors.push({ field: 'block_reason', message: 'block_reason cannot be set from request body' });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'block_message')) {
+    errors.push({ field: 'block_message', message: 'block_message cannot be set from request body' });
+  }
+
+  return {
+    errors,
+    values: {
+      id: Number(id),
+    },
+  };
+};
+
+const blockSlot = async (req, res) => {
+  const { errors, values } = validateBlockSlotInput(req.params || {}, req.body || {});
+
+  if (errors.length > 0) {
+    return errorResponse(res, 'Validation failed', 400, { errors });
+  }
+
+  try {
+    const result = await slotService.blockSlotById({
+      slotId: values.id,
+      user: req.user,
+    });
+
+    if (result.errorCode === 'SLOT_NOT_FOUND') {
+      return errorResponse(res, 'Slot not found', 404, {});
+    }
+
+    if (result.errorCode === 'ACCESS_FORBIDDEN') {
+      return errorResponse(res, 'Access forbidden', 403, {});
+    }
+
+    if (result.errorCode === 'SLOT_ALREADY_BLOCKED') {
+      return errorResponse(res, 'Slot is already blocked', 409, {});
+    }
+
+    if (result.errorCode === 'SLOT_CANNOT_BE_BLOCKED') {
+      return errorResponse(res, 'Slot cannot be blocked', 409, {});
+    }
+
+    return successResponse(res, 'Slot blocked successfully', { slot: result.slot }, 200);
+  } catch (error) {
+    return errorResponse(res, 'Slot could not be blocked', 500, {});
+  }
+};
+
 module.exports = {
+  blockSlot,
   createSlot,
   listAvailableSlots,
 };
