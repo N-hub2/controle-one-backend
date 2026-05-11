@@ -5,6 +5,20 @@ const isPositiveIntegerString = (value) => {
   return /^\d+$/.test(String(value)) && Number(value) > 0;
 };
 
+const parseValidDate = (value) => {
+  if (value === null || value === undefined || String(value).trim().length === 0) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return parsedDate;
+};
+
 const listAvailableSlots = async (req, res) => {
   const { garage_id: garageId } = req.query;
 
@@ -29,6 +43,83 @@ const listAvailableSlots = async (req, res) => {
   }
 };
 
+const validateCreateSlotInput = (body) => {
+  const errors = [];
+  const garageId = body.garage_id;
+  const startDatetime = body.start_datetime;
+  const endDatetime = body.end_datetime;
+
+  if (!isPositiveIntegerString(garageId)) {
+    errors.push({ field: 'garage_id', message: 'garage_id must be a positive integer' });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'status')) {
+    errors.push({ field: 'status', message: 'status cannot be set from request body' });
+  }
+
+  const parsedStartDatetime = parseValidDate(startDatetime);
+  const parsedEndDatetime = parseValidDate(endDatetime);
+
+  if (!parsedStartDatetime) {
+    errors.push({ field: 'start_datetime', message: 'start_datetime must be a valid datetime' });
+  }
+
+  if (!parsedEndDatetime) {
+    errors.push({ field: 'end_datetime', message: 'end_datetime must be a valid datetime' });
+  }
+
+  if (parsedStartDatetime && parsedStartDatetime.getTime() < Date.now()) {
+    errors.push({ field: 'start_datetime', message: 'start_datetime must be greater than or equal to the current datetime' });
+  }
+
+  if (parsedStartDatetime && parsedEndDatetime && parsedEndDatetime.getTime() <= parsedStartDatetime.getTime()) {
+    errors.push({ field: 'end_datetime', message: 'end_datetime must be greater than start_datetime' });
+  }
+
+  return {
+    errors,
+    values: {
+      garage_id: Number(garageId),
+      start_datetime: startDatetime,
+      end_datetime: endDatetime,
+    },
+  };
+};
+
+const createSlot = async (req, res) => {
+  const { errors, values } = validateCreateSlotInput(req.body || {});
+
+  if (errors.length > 0) {
+    return errorResponse(res, 'Validation failed', 400, { errors });
+  }
+
+  try {
+    const result = await slotService.createSlot({
+      garageId: values.garage_id,
+      startDatetime: values.start_datetime,
+      endDatetime: values.end_datetime,
+      user: req.user,
+    });
+
+    if (result.errorCode === 'GARAGE_NOT_FOUND') {
+      return errorResponse(res, 'Garage not found', 404, {});
+    }
+
+    if (result.errorCode === 'ACCESS_FORBIDDEN') {
+      return errorResponse(res, 'Access forbidden', 403, {});
+    }
+
+    if (result.errorCode === 'SLOT_OVERLAP') {
+      return errorResponse(res, 'Slot overlaps with an existing slot', 409, {});
+    }
+
+    return successResponse(res, 'Slot created successfully', { slot: result.slot }, 201);
+  } catch (error) {
+    return errorResponse(res, 'Slot could not be created', 500, {});
+  }
+};
+
 module.exports = {
+  createSlot,
   listAvailableSlots,
 };
