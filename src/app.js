@@ -5,6 +5,7 @@ const authRoutes = require('./routes/auth/auth.routes');
 const garageRoutes = require('./routes/garages/garage.routes');
 const serviceRoutes = require('./routes/services/service.routes');
 const tariffRoutes = require('./routes/tariffs/tariff.routes');
+const searchRoutes = require('./routes/search/search.routes');
 const healthRoutes = require('./routes/health.routes');
 const notFoundMiddleware = require('./middlewares/notFound.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -40,6 +41,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/garages', garageRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/tariffs', tariffRoutes);
+app.use('/api/search', searchRoutes);
 app.use('/api/health', healthRoutes);
 
 app.use(notFoundMiddleware);
