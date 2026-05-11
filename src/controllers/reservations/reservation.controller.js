@@ -182,7 +182,69 @@ const getGarageReservations = async (req, res) => {
   }
 };
 
+const cancelReservation = async (req, res) => {
+  const reservationId = req.params.id;
+
+  if (!isPositiveIntegerString(reservationId)) {
+    return errorResponse(res, 'Validation failed', 400, {
+      errors: [{ field: 'id', message: 'id must be a positive integer' }],
+    });
+  }
+
+  try {
+    const result = await reservationService.cancelReservationById(Number(reservationId), req.user);
+
+    if (result.errorCode === 'RESERVATION_NOT_FOUND' || result.errorCode === 'RESOURCE_NOT_FOUND') {
+      return errorResponse(res, 'Resource not found', 404, {});
+    }
+
+    if (result.errorCode === 'ACCESS_FORBIDDEN') {
+      return errorResponse(res, 'Access forbidden', 403, {});
+    }
+
+    if (result.errorCode === 'INVALID_STATE_TRANSITION') {
+      return errorResponse(res, 'Invalid reservation state transition', 409, {});
+    }
+
+    return successResponse(res, 'Reservation cancelled successfully', { reservation: result.reservation }, 200);
+  } catch (error) {
+    return errorResponse(res, 'Reservation could not be cancelled', 500, {});
+  }
+};
+
+const confirmReservation = async (req, res) => {
+  const reservationId = req.params.id;
+
+  if (!isPositiveIntegerString(reservationId)) {
+    return errorResponse(res, 'Validation failed', 400, {
+      errors: [{ field: 'id', message: 'id must be a positive integer' }],
+    });
+  }
+
+  try {
+    const result = await reservationService.confirmReservationById(Number(reservationId), req.user);
+
+    if (result.errorCode === 'RESERVATION_NOT_FOUND' || result.errorCode === 'RESOURCE_NOT_FOUND') {
+      return errorResponse(res, 'Resource not found', 404, {});
+    }
+
+    if (result.errorCode === 'ACCESS_FORBIDDEN') {
+      return errorResponse(res, 'Access forbidden', 403, {});
+    }
+
+    if (result.errorCode === 'INVALID_STATE_TRANSITION') {
+      return errorResponse(res, 'Invalid reservation state transition', 409, {});
+    }
+
+    return successResponse(res, 'Reservation confirmed successfully', { reservation: result.reservation }, 200);
+  } catch (error) {
+    return errorResponse(res, 'Reservation could not be confirmed', 500, {});
+  }
+};
+
 module.exports = {
+  cancelReservation,
+  confirmReservation,
   getGarageReservations,
   getMyReservations,
   createReservation,
