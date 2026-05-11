@@ -7,6 +7,7 @@ const serviceRoutes = require('./routes/services/service.routes');
 const tariffRoutes = require('./routes/tariffs/tariff.routes');
 const searchRoutes = require('./routes/search/search.routes');
 const slotRoutes = require('./routes/slots/slot.routes');
+const reservationRoutes = require('./routes/reservations/reservation.routes');
 const healthRoutes = require('./routes/health.routes');
 const notFoundMiddleware = require('./middlewares/notFound.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -44,6 +45,7 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/tariffs', tariffRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/slots', slotRoutes);
+app.use('/api/reservations', reservationRoutes);
 app.use('/api/health', healthRoutes);
 
 app.use(notFoundMiddleware);
