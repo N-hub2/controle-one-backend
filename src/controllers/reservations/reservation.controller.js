@@ -153,7 +153,37 @@ const getMyReservations = async (req, res) => {
   }
 };
 
+const getGarageReservations = async (req, res) => {
+  const garageId = req.params.garage_id;
+
+  if (!isPositiveIntegerString(garageId)) {
+    return errorResponse(res, 'Validation failed', 400, {
+      errors: [{ field: 'garage_id', message: 'garage_id must be a positive integer' }],
+    });
+  }
+
+  try {
+    const result = await reservationService.getReservationsByGarageId({
+      garageId: Number(garageId),
+      user: req.user,
+    });
+
+    if (result.errorCode === 'GARAGE_NOT_FOUND' || result.errorCode === 'RESOURCE_NOT_FOUND') {
+      return errorResponse(res, 'Resource not found', 404, {});
+    }
+
+    if (result.errorCode === 'ACCESS_FORBIDDEN') {
+      return errorResponse(res, 'Access forbidden', 403, {});
+    }
+
+    return successResponse(res, 'Garage reservations retrieved successfully', { reservations: result.reservations }, 200);
+  } catch (error) {
+    return errorResponse(res, 'Garage reservations could not be retrieved', 500, {});
+  }
+};
+
 module.exports = {
+  getGarageReservations,
   getMyReservations,
   createReservation,
 };
