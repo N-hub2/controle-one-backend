@@ -6,6 +6,196 @@ const rollbackWith = async (connection, errorCode) => {
   return { errorCode };
 };
 
+const getReservationForUpdate = async (connection, reservationId) => {
+  const [rows] = await connection.execute(
+    `SELECT
+       r.reservation_id,
+       r.user_id,
+       r.garage_id,
+       r.service_id,
+       r.slot_id,
+       r.status,
+       r.vehicle_registration,
+       r.vehicle_make,
+       r.vehicle_model,
+       r.vehicle_year,
+       r.vehicle_version,
+       r.cancelled_at,
+       r.confirmed_at,
+       r.created_at,
+       r.updated_at,
+       sl.status AS slot_status,
+       sl.start_datetime AS slot_start_datetime,
+       g.manager_user_id,
+       g.status AS garage_status
+     FROM reservations r
+     INNER JOIN slots sl ON r.slot_id = sl.slot_id
+     INNER JOIN garages g ON r.garage_id = g.garage_id
+     WHERE r.reservation_id = ?
+     LIMIT 1
+     FOR UPDATE`,
+    [reservationId],
+  );
+
+  return rows[0] || null;
+};
+
+const getReservationById = async (connection, reservationId) => {
+  const [rows] = await connection.execute(
+    `SELECT
+       reservation_id,
+       user_id,
+       garage_id,
+       service_id,
+       slot_id,
+       status,
+       vehicle_registration,
+       vehicle_make,
+       vehicle_model,
+       vehicle_year,
+       vehicle_version,
+       cancelled_at,
+       confirmed_at,
+       created_at,
+       updated_at
+     FROM reservations
+     WHERE reservation_id = ?
+     LIMIT 1`,
+    [reservationId],
+  );
+
+  return rows[0] || null;
+};
+
+const cancelReservationById = async (reservationId, user) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const reservation = await getReservationForUpdate(connection, reservationId);
+
+    if (!reservation) {
+      return rollbackWith(connection, 'RESERVATION_NOT_FOUND');
+    }
+
+    if (reservation.garage_status !== 'active') {
+      return rollbackWith(connection, 'RESOURCE_NOT_FOUND');
+    }
+
+    if (user.role === 'garage') {
+      if (Number(reservation.manager_user_id) !== Number(user.user_id)) {
+        return rollbackWith(connection, 'ACCESS_FORBIDDEN');
+      }
+    } else if (user.role === 'client') {
+      if (Number(reservation.user_id) !== Number(user.user_id)) {
+        return rollbackWith(connection, 'ACCESS_FORBIDDEN');
+      }
+    } else if (user.role !== 'admin') {
+      return rollbackWith(connection, 'ACCESS_FORBIDDEN');
+    }
+
+    if (reservation.status !== 'pending' && reservation.status !== 'confirmed') {
+      return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
+    }
+
+    const [reservationUpdate] = await connection.execute(
+      `UPDATE reservations
+       SET status = 'cancelled',
+           cancelled_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE reservation_id = ?
+         AND status IN ('pending', 'confirmed')`,
+      [reservationId],
+    );
+
+    if (reservationUpdate.affectedRows === 0) {
+      return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
+    }
+
+    const shouldReleaseSlot =
+      reservation.slot_status === 'booked' &&
+      new Date(reservation.slot_start_datetime).getTime() >= Date.now();
+
+    if (shouldReleaseSlot) {
+      await connection.execute(
+        `UPDATE slots
+         SET status = 'available',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE slot_id = ?
+           AND status = 'booked'`,
+        [reservation.slot_id],
+      );
+    }
+
+    const updatedReservation = await getReservationById(connection, reservationId);
+
+    await connection.commit();
+
+    return { reservation: updatedReservation };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+const confirmReservationById = async (reservationId, user) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const reservation = await getReservationForUpdate(connection, reservationId);
+
+    if (!reservation) {
+      return rollbackWith(connection, 'RESERVATION_NOT_FOUND');
+    }
+
+    if (reservation.garage_status !== 'active') {
+      return rollbackWith(connection, 'RESOURCE_NOT_FOUND');
+    }
+
+    if (user.role === 'garage') {
+      if (Number(reservation.manager_user_id) !== Number(user.user_id)) {
+        return rollbackWith(connection, 'ACCESS_FORBIDDEN');
+      }
+    } else if (user.role !== 'admin') {
+      return rollbackWith(connection, 'ACCESS_FORBIDDEN');
+    }
+
+    if (reservation.status !== 'pending') {
+      return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
+    }
+
+    const [reservationUpdate] = await connection.execute(
+      `UPDATE reservations
+       SET status = 'confirmed',
+           confirmed_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE reservation_id = ?
+         AND status = 'pending'`,
+      [reservationId],
+    );
+
+    if (reservationUpdate.affectedRows === 0) {
+      return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
+    }
+
+    const updatedReservation = await getReservationById(connection, reservationId);
+
+    await connection.commit();
+
+    return { reservation: updatedReservation };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
 const getReservationsByUserId = async (userId) => {
   const [rows] = await pool.execute(
     `SELECT
@@ -361,6 +551,8 @@ const createReservation = async ({
 };
 
 module.exports = {
+  cancelReservationById,
+  confirmReservationById,
   getReservationsByGarageId,
   getReservationsByUserId,
   createReservation,
