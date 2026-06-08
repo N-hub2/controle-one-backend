@@ -29,7 +29,7 @@ INSERT INTO users (
     'Admin',
     'Controle One',
     'admin@controle-one.local',
-    '$2y$12$Oa/ibg7.8yQS9502tWekfObU2PK5WzfrexjRmWOjtFsCtxk0C9oFm',
+    '$2b$12$Oa/ibg7.8yQS9502tWekfObU2PK5WzfrexjRmWOjtFsCtxk0C9oFm',
     '0100000001',
     'admin',
     'active'
@@ -39,7 +39,7 @@ INSERT INTO users (
     'Client',
     'Demo',
     'client@controle-one.local',
-    '$2y$12$Q/SpUnh2Fplz88vwt2FSJOyRHuiDPE0/wDhd3YC4LbSxr2T0LnNaK',
+    '$2b$12$Q/SpUnh2Fplz88vwt2FSJOyRHuiDPE0/wDhd3YC4LbSxr2T0LnNaK',
     '0100000002',
     'client',
     'active'
@@ -49,7 +49,7 @@ INSERT INTO users (
     'Garage',
     'Paris',
     'garage.paris@controle-one.local',
-    '$2y$12$EZB7MdLxwx6ZYWjZuEUo9e5ibjsbrWBGWy3KnevYC7ZCMD4aVapue',
+    '$2b$12$EZB7MdLxwx6ZYWjZuEUo9e5ibjsbrWBGWy3KnevYC7ZCMD4aVapue',
     '0100000003',
     'garage',
     'active'
@@ -59,7 +59,7 @@ INSERT INTO users (
     'Garage',
     'Lyon',
     'garage.lyon@controle-one.local',
-    '$2y$12$EZB7MdLxwx6ZYWjZuEUo9e5ibjsbrWBGWy3KnevYC7ZCMD4aVapue',
+    '$2b$12$EZB7MdLxwx6ZYWjZuEUo9e5ibjsbrWBGWy3KnevYC7ZCMD4aVapue',
     '0100000004',
     'garage',
     'active'
