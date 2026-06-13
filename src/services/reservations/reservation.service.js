@@ -1,70 +1,11 @@
 const { pool } = require('../../config/database');
+const ReservationModel = require('../../models/ReservationModel');
+const SlotModel = require('../../models/SlotModel');
 
 const rollbackWith = async (connection, errorCode) => {
   await connection.rollback();
 
   return { errorCode };
-};
-
-const getReservationForUpdate = async (connection, reservationId) => {
-  const [rows] = await connection.execute(
-    `SELECT
-       r.reservation_id,
-       r.user_id,
-       r.garage_id,
-       r.service_id,
-       r.slot_id,
-       r.status,
-       r.vehicle_registration,
-       r.vehicle_make,
-       r.vehicle_model,
-       r.vehicle_year,
-       r.vehicle_version,
-       r.cancelled_at,
-       r.confirmed_at,
-       r.created_at,
-       r.updated_at,
-       sl.status AS slot_status,
-       sl.start_datetime AS slot_start_datetime,
-       g.manager_user_id,
-       g.status AS garage_status
-     FROM reservations r
-     INNER JOIN slots sl ON r.slot_id = sl.slot_id
-     INNER JOIN garages g ON r.garage_id = g.garage_id
-     WHERE r.reservation_id = ?
-     LIMIT 1
-     FOR UPDATE`,
-    [reservationId],
-  );
-
-  return rows[0] || null;
-};
-
-const getReservationById = async (connection, reservationId) => {
-  const [rows] = await connection.execute(
-    `SELECT
-       reservation_id,
-       user_id,
-       garage_id,
-       service_id,
-       slot_id,
-       status,
-       vehicle_registration,
-       vehicle_make,
-       vehicle_model,
-       vehicle_year,
-       vehicle_version,
-       cancelled_at,
-       confirmed_at,
-       created_at,
-       updated_at
-     FROM reservations
-     WHERE reservation_id = ?
-     LIMIT 1`,
-    [reservationId],
-  );
-
-  return rows[0] || null;
 };
 
 const cancelReservationById = async (reservationId, user) => {
@@ -73,7 +14,7 @@ const cancelReservationById = async (reservationId, user) => {
   try {
     await connection.beginTransaction();
 
-    const reservation = await getReservationForUpdate(connection, reservationId);
+    const reservation = await ReservationModel.findByIdForUpdate(reservationId, connection);
 
     if (!reservation) {
       return rollbackWith(connection, 'RESERVATION_NOT_FOUND');
@@ -99,17 +40,9 @@ const cancelReservationById = async (reservationId, user) => {
       return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
     }
 
-    const [reservationUpdate] = await connection.execute(
-      `UPDATE reservations
-       SET status = 'cancelled',
-           cancelled_at = CURRENT_TIMESTAMP,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE reservation_id = ?
-         AND status IN ('pending', 'confirmed')`,
-      [reservationId],
-    );
+    const affectedRows = await ReservationModel.cancelById(reservationId, connection);
 
-    if (reservationUpdate.affectedRows === 0) {
+    if (affectedRows === 0) {
       return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
     }
 
@@ -128,7 +61,7 @@ const cancelReservationById = async (reservationId, user) => {
       );
     }
 
-    const updatedReservation = await getReservationById(connection, reservationId);
+    const updatedReservation = await ReservationModel.findById(reservationId, connection);
 
     await connection.commit();
 
@@ -147,7 +80,7 @@ const confirmReservationById = async (reservationId, user) => {
   try {
     await connection.beginTransaction();
 
-    const reservation = await getReservationForUpdate(connection, reservationId);
+    const reservation = await ReservationModel.findByIdForUpdate(reservationId, connection);
 
     if (!reservation) {
       return rollbackWith(connection, 'RESERVATION_NOT_FOUND');
@@ -169,21 +102,13 @@ const confirmReservationById = async (reservationId, user) => {
       return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
     }
 
-    const [reservationUpdate] = await connection.execute(
-      `UPDATE reservations
-       SET status = 'confirmed',
-           confirmed_at = CURRENT_TIMESTAMP,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE reservation_id = ?
-         AND status = 'pending'`,
-      [reservationId],
-    );
+    const affectedRows = await ReservationModel.confirmById(reservationId, connection);
 
-    if (reservationUpdate.affectedRows === 0) {
+    if (affectedRows === 0) {
       return rollbackWith(connection, 'INVALID_STATE_TRANSITION');
     }
 
-    const updatedReservation = await getReservationById(connection, reservationId);
+    const updatedReservation = await ReservationModel.findById(reservationId, connection);
 
     await connection.commit();
 
@@ -197,45 +122,7 @@ const confirmReservationById = async (reservationId, user) => {
 };
 
 const getReservationsByUserId = async (userId) => {
-  const [rows] = await pool.execute(
-    `SELECT
-       r.reservation_id,
-       r.user_id,
-       r.garage_id,
-       r.service_id,
-       r.slot_id,
-       r.status,
-       r.vehicle_registration,
-       r.vehicle_make,
-       r.vehicle_model,
-       r.vehicle_year,
-       r.vehicle_version,
-       r.created_at,
-       r.updated_at,
-       g.garage_id AS garage_garage_id,
-       g.name AS garage_name,
-       g.address AS garage_address,
-       g.city AS garage_city,
-       g.postal_code AS garage_postal_code,
-       g.phone AS garage_phone,
-       g.email AS garage_email,
-       g.status AS garage_status,
-       s.service_id AS service_service_id,
-       s.name AS service_name,
-       s.description AS service_description,
-       s.status AS service_status,
-       sl.slot_id AS slot_slot_id,
-       sl.start_datetime AS slot_start_datetime,
-       sl.end_datetime AS slot_end_datetime,
-       sl.status AS slot_status
-     FROM reservations r
-     INNER JOIN garages g ON r.garage_id = g.garage_id
-     INNER JOIN services s ON r.service_id = s.service_id
-     INNER JOIN slots sl ON r.slot_id = sl.slot_id
-     WHERE r.user_id = ?
-     ORDER BY r.created_at DESC`,
-    [userId],
-  );
+  const rows = await ReservationModel.findAllByUserId(userId);
 
   return rows.map((row) => ({
     reservation_id: row.reservation_id,
@@ -277,18 +164,7 @@ const getReservationsByUserId = async (userId) => {
 };
 
 const getReservationsByGarageId = async ({ garageId, user }) => {
-  const [garageRows] = await pool.execute(
-    `SELECT
-       garage_id,
-       manager_user_id,
-       status
-     FROM garages
-     WHERE garage_id = ?
-     LIMIT 1`,
-    [garageId],
-  );
-
-  const garage = garageRows[0] || null;
+  const garage = await ReservationModel.findGarageAccessById(garageId);
 
   if (!garage || garage.status !== 'active') {
     return { errorCode: 'GARAGE_NOT_FOUND' };
@@ -302,44 +178,7 @@ const getReservationsByGarageId = async ({ garageId, user }) => {
     return { errorCode: 'ACCESS_FORBIDDEN' };
   }
 
-  const [rows] = await pool.execute(
-    `SELECT
-       r.reservation_id,
-       r.user_id,
-       r.garage_id,
-       r.service_id,
-       r.slot_id,
-       r.status,
-       r.vehicle_registration,
-       r.vehicle_make,
-       r.vehicle_model,
-       r.vehicle_year,
-       r.vehicle_version,
-       r.created_at,
-       r.updated_at,
-       u.user_id AS user_user_id,
-       u.first_name AS user_first_name,
-       u.last_name AS user_last_name,
-       u.email AS user_email,
-       u.phone AS user_phone,
-       u.role AS user_role,
-       u.status AS user_status,
-       s.service_id AS service_service_id,
-       s.name AS service_name,
-       s.description AS service_description,
-       s.status AS service_status,
-       sl.slot_id AS slot_slot_id,
-       sl.start_datetime AS slot_start_datetime,
-       sl.end_datetime AS slot_end_datetime,
-       sl.status AS slot_status
-     FROM reservations r
-     INNER JOIN users u ON r.user_id = u.user_id
-     INNER JOIN services s ON r.service_id = s.service_id
-     INNER JOIN slots sl ON r.slot_id = sl.slot_id
-     WHERE r.garage_id = ?
-     ORDER BY r.created_at DESC`,
-    [garageId],
-  );
+  const rows = await ReservationModel.findAllByGarageId(garageId);
 
   return {
     reservations: rows.map((row) => ({
@@ -397,21 +236,7 @@ const createReservation = async ({
   try {
     await connection.beginTransaction();
 
-    const [slotRows] = await connection.execute(
-      `SELECT
-         slot_id,
-         garage_id,
-         start_datetime,
-         end_datetime,
-         status
-       FROM slots
-       WHERE slot_id = ?
-       LIMIT 1
-       FOR UPDATE`,
-      [slotId],
-    );
-
-    const slot = slotRows[0] || null;
+    const slot = await SlotModel.findByIdForUpdate(slotId, connection);
 
     if (!slot) {
       return rollbackWith(connection, 'RESOURCE_NOT_FOUND');
@@ -429,64 +254,33 @@ const createReservation = async ({
       return rollbackWith(connection, 'GARAGE_SLOT_MISMATCH');
     }
 
-    const [garageRows] = await connection.execute(
-      `SELECT garage_id
-       FROM garages
-       WHERE garage_id = ?
-         AND status = 'active'
-       LIMIT 1`,
-      [garageId],
-    );
+    const garage = await ReservationModel.findActiveGarageById(garageId, connection);
 
-    if (!garageRows[0]) {
+    if (!garage) {
       return rollbackWith(connection, 'RESOURCE_NOT_FOUND');
     }
 
-    const [serviceRows] = await connection.execute(
-      `SELECT service_id
-       FROM services
-       WHERE service_id = ?
-         AND status = 'active'
-       LIMIT 1`,
-      [serviceId],
-    );
+    const service = await ReservationModel.findActiveServiceById(serviceId, connection);
 
-    if (!serviceRows[0]) {
+    if (!service) {
       return rollbackWith(connection, 'RESOURCE_NOT_FOUND');
     }
 
-    const [tariffRows] = await connection.execute(
-      `SELECT tariff_id
-       FROM tariffs
-       WHERE garage_id = ?
-         AND service_id = ?
-         AND status = 'active'
-       LIMIT 1`,
-      [garageId, serviceId],
+    const tariff = await ReservationModel.findActiveTariffByGarageAndService(
+      garageId,
+      serviceId,
+      connection,
     );
 
-    if (!tariffRows[0]) {
+    if (!tariff) {
       return rollbackWith(connection, 'RESOURCE_NOT_FOUND');
     }
 
-    let reservationInsertResult;
+    let reservationId;
 
     try {
-      [reservationInsertResult] = await connection.execute(
-        `INSERT INTO reservations (
-           user_id,
-           garage_id,
-           service_id,
-           slot_id,
-           status,
-           vehicle_registration,
-           vehicle_make,
-           vehicle_model,
-           vehicle_year,
-           vehicle_version
-         )
-         VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
-        [
+      reservationId = await ReservationModel.createReservation(
+        {
           userId,
           garageId,
           serviceId,
@@ -496,7 +290,8 @@ const createReservation = async ({
           vehicleModel,
           vehicleYear,
           vehicleVersion,
-        ],
+        },
+        connection,
       );
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') {
@@ -506,42 +301,17 @@ const createReservation = async ({
       throw error;
     }
 
-    const [slotUpdateResult] = await connection.execute(
-      `UPDATE slots
-       SET status = 'booked', updated_at = CURRENT_TIMESTAMP
-       WHERE slot_id = ?
-         AND status = 'available'`,
-      [slotId],
-    );
+    const affectedRows = await SlotModel.markBookedIfAvailable(slotId, connection);
 
-    if (slotUpdateResult.affectedRows === 0) {
+    if (affectedRows === 0) {
       return rollbackWith(connection, 'SLOT_UNAVAILABLE');
     }
 
-    const [reservationRows] = await connection.execute(
-      `SELECT
-         reservation_id,
-         user_id,
-         garage_id,
-         service_id,
-         slot_id,
-         status,
-         vehicle_registration,
-         vehicle_make,
-         vehicle_model,
-         vehicle_year,
-         vehicle_version
-       FROM reservations
-       WHERE reservation_id = ?
-       LIMIT 1`,
-      [reservationInsertResult.insertId],
-    );
+    const reservation = await ReservationModel.findCreatedReservationById(reservationId, connection);
 
     await connection.commit();
 
-    return {
-      reservation: reservationRows[0] || null,
-    };
+    return { reservation };
   } catch (error) {
     await connection.rollback();
     throw error;

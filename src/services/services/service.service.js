@@ -1,26 +1,7 @@
-const { pool } = require('../../config/database');
+const ServiceModel = require('../../models/ServiceModel');
 
 const getActiveServices = async () => {
-  const [rows] = await pool.execute(
-    `SELECT service_id, name, description, status
-     FROM services
-     WHERE status = 'active'
-     ORDER BY name ASC`,
-  );
-
-  return rows;
-};
-
-const findServiceByName = async (name) => {
-  const [rows] = await pool.execute(
-    `SELECT service_id
-     FROM services
-     WHERE LOWER(name) = LOWER(?)
-     LIMIT 1`,
-    [name],
-  );
-
-  return rows[0] || null;
+  return ServiceModel.findAll();
 };
 
 const createService = async ({ name, description }) => {
@@ -28,7 +9,7 @@ const createService = async ({ name, description }) => {
   const sanitizedDescription =
     typeof description === 'string' && description.trim().length > 0 ? description.trim() : null;
 
-  const existingService = await findServiceByName(sanitizedName);
+  const existingService = await ServiceModel.findByName(sanitizedName);
 
   if (existingService) {
     const error = new Error('Service name already exists');
@@ -36,14 +17,13 @@ const createService = async ({ name, description }) => {
     throw error;
   }
 
-  let result;
+  let serviceId;
 
   try {
-    [result] = await pool.execute(
-      `INSERT INTO services (name, description)
-       VALUES (?, ?)`,
-      [sanitizedName, sanitizedDescription],
-    );
+    serviceId = await ServiceModel.createService({
+      name: sanitizedName,
+      description: sanitizedDescription,
+    });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
       const duplicateError = new Error('Service name already exists');
@@ -55,7 +35,7 @@ const createService = async ({ name, description }) => {
   }
 
   return {
-    service_id: result.insertId,
+    service_id: serviceId,
     name: sanitizedName,
     description: sanitizedDescription,
     status: 'active',

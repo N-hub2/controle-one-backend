@@ -1,49 +1,17 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-const { pool } = require('../../config/database');
+const UserModel = require('../../models/UserModel');
 
 const SALT_ROUNDS = 12;
 const TOKEN_EXPIRES_IN = '1d';
 
-const findUserByEmail = async (email) => {
-  const [rows] = await pool.execute(
-    `SELECT user_id
-     FROM users
-     WHERE email = ?
-     LIMIT 1`,
-    [email],
-  );
-
-  return rows[0] || null;
-};
-
-const findUserForLoginByEmail = async (email) => {
-  const [rows] = await pool.execute(
-    `SELECT user_id, first_name, last_name, email, password_hash, phone, role, status
-     FROM users
-     WHERE email = ?
-     LIMIT 1`,
-    [email],
-  );
-
-  return rows[0] || null;
-};
-
 const getUserById = async (userId) => {
-  const [rows] = await pool.execute(
-    `SELECT user_id, first_name, last_name, email, phone, role, status, created_at, updated_at
-     FROM users
-     WHERE user_id = ?
-     LIMIT 1`,
-    [userId],
-  );
-
-  return rows[0] || null;
+  return UserModel.findById(userId);
 };
 
 const registerUser = async ({ first_name, last_name, email, password, phone, role }) => {
-  const existingUser = await findUserByEmail(email);
+  const existingUser = await UserModel.findByEmail(email);
 
   if (existingUser) {
     const error = new Error('Email already exists');
@@ -53,14 +21,17 @@ const registerUser = async ({ first_name, last_name, email, password, phone, rol
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-  let result;
+  let userId;
 
   try {
-    [result] = await pool.execute(
-      `INSERT INTO users (first_name, last_name, email, password_hash, phone, role)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [first_name, last_name, email, passwordHash, phone, role],
-    );
+    userId = await UserModel.createUser({
+      firstname: first_name,
+      lastname: last_name,
+      email,
+      passwordHash,
+      phone,
+      role,
+    });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
       const duplicateEmailError = new Error('Email already exists');
@@ -72,7 +43,7 @@ const registerUser = async ({ first_name, last_name, email, password, phone, rol
   }
 
   return {
-    user_id: result.insertId,
+    user_id: userId,
     first_name,
     last_name,
     email,
@@ -83,7 +54,7 @@ const registerUser = async ({ first_name, last_name, email, password, phone, rol
 };
 
 const loginUser = async ({ email, password }) => {
-  const user = await findUserForLoginByEmail(email);
+  const user = await UserModel.findByEmail(email);
 
   if (!user) {
     const error = new Error('Invalid email or password');
