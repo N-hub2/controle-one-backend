@@ -157,4 +157,6 @@ module.exports = {
   findWithGarageById,
   findActiveReservationBySlotId,
   blockAvailableById,
+  findByIdForUpdate,
+  markBookedIfAvailable,
 };
