@@ -1,9 +1,6 @@
 const slotService = require('../../services/slots/slot.service');
 const { successResponse, errorResponse } = require('../../utils/apiResponse');
-
-const isPositiveIntegerString = (value) => {
-  return /^\d+$/.test(String(value)) && Number(value) > 0;
-};
+const { isPositiveIntegerString } = require('../../utils/validators');
 
 const parseValidDate = (value) => {
   if (value === null || value === undefined || String(value).trim().length === 0) {
@@ -49,7 +46,7 @@ const validateCreateSlotInput = (body) => {
   const startDatetime = body.start_datetime;
   const endDatetime = body.end_datetime;
 
-  if (!isPositiveIntegerString(garageId)) {
+  if (!isPositiveIntegerString(String(garageId))) {
     errors.push({ field: 'garage_id', message: 'garage_id must be a positive integer' });
   }
 
