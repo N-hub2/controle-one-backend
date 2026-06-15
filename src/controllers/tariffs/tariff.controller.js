@@ -1,11 +1,8 @@
 const tariffService = require('../../services/tariffs/tariff.service');
 const { successResponse, errorResponse } = require('../../utils/apiResponse');
+const { isPositiveIntegerString } = require('../../utils/validators');
 
 const MAX_DECIMAL_VALUE = 99999999.99;
-
-const isPositiveIntegerString = (value) => {
-  return /^\d+$/.test(String(value)) && Number(value) > 0;
-};
 
 const normalizeCurrency = (currency) => {
   return String(currency).trim().toUpperCase();
@@ -58,11 +55,11 @@ const validateCreateTariffInput = (body) => {
   const hasCurrency = Object.prototype.hasOwnProperty.call(body, 'currency');
   const rawCurrency = hasCurrency ? body.currency : 'EUR';
 
-  if (!isPositiveIntegerString(garageId)) {
+  if (!isPositiveIntegerString(String(garageId))) {
     errors.push({ field: 'garage_id', message: 'garage_id must be a positive integer' });
   }
 
-  if (!isPositiveIntegerString(serviceId)) {
+  if (!isPositiveIntegerString(String(serviceId))) {
     errors.push({ field: 'service_id', message: 'service_id must be a positive integer' });
   }
 
