@@ -1,11 +1,8 @@
 const searchService = require('../../services/search/search.service');
 const { successResponse, errorResponse } = require('../../utils/apiResponse');
+const { isPositiveIntegerString } = require('../../utils/validators');
 
 const unsupportedFilterKeys = ['registration', 'make', 'model', 'year', 'version'];
-
-const isPositiveIntegerString = (value) => {
-  return /^\d+$/.test(value) && Number(value) > 0;
-};
 
 const isPositiveNumberString = (value) => {
   if (!/^\d+(\.\d+)?$/.test(value)) {
