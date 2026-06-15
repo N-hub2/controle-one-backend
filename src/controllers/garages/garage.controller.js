@@ -1,5 +1,6 @@
 const garageService = require('../../services/garages/garage.service');
 const { successResponse, errorResponse } = require('../../utils/apiResponse');
+const { isPositiveIntegerString } = require('../../utils/validators');
 
 const listGarages = async (req, res) => {
   try {
@@ -14,7 +15,7 @@ const listGarages = async (req, res) => {
 const getGarageById = async (req, res) => {
   const { id } = req.params;
 
-  if (!/^\d+$/.test(id) || Number(id) <= 0) {
+  if (!isPositiveIntegerString(id)) {
     return errorResponse(res, 'Invalid garage id', 400, {});
   }
 
