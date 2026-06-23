@@ -1,10 +1,7 @@
 const reservationService = require('../../services/reservations/reservation.service');
 const { successResponse, errorResponse } = require('../../utils/apiResponse');
 
-const isPositiveIntegerString = (value) => {
-  return /^\d+$/.test(String(value)) && Number(value) > 0;
-};
-
+const { isPositiveIntegerString } = require('../../utils/validators');
 const normalizeRequiredString = (value) => {
   if (value === null || value === undefined) {
     return null;
@@ -47,15 +44,15 @@ const validateCreateReservationInput = (body) => {
     errors.push({ field: 'status', message: 'status cannot be set from request body' });
   }
 
-  if (!isPositiveIntegerString(garageId)) {
+  if (!isPositiveIntegerString(String(garageId))) {
     errors.push({ field: 'garage_id', message: 'garage_id must be a positive integer' });
   }
 
-  if (!isPositiveIntegerString(serviceId)) {
+  if (!isPositiveIntegerString(String(serviceId))) {
     errors.push({ field: 'service_id', message: 'service_id must be a positive integer' });
   }
 
-  if (!isPositiveIntegerString(slotId)) {
+  if (!isPositiveIntegerString(String(slotId))) {
     errors.push({ field: 'slot_id', message: 'slot_id must be a positive integer' });
   }
 
